@@ -2,6 +2,7 @@ package coordination
 
 import (
 	"context"
+	"strings"
 
 	"example.com/spillway-gate-coordinator/internal/contracts"
 	"example.com/spillway-gate-coordinator/internal/domain"
@@ -78,12 +79,29 @@ func (s *Service) ExecuteCommand(
 	commandID string,
 	request contracts.ExecuteCommandRequest,
 ) (domain.GateCommand, domain.Gate, error) {
+	outcome := domain.CompletionOutcome()
+	if request.SimulateFault {
+		if request.ActualAperture == nil {
+			return domain.GateCommand{}, domain.Gate{}, domain.Invalid(
+				"missing_actual_aperture",
+				"fault registration requires the actual stop aperture",
+			)
+		}
+		if strings.TrimSpace(request.FaultBasis) == "" {
+			return domain.GateCommand{}, domain.Gate{}, domain.Invalid(
+				"missing_fault_basis",
+				"fault registration requires the basis for the actual stop",
+			)
+		}
+		outcome = domain.FaultOutcome(*request.ActualAperture, request.FaultBasis)
+	}
+
 	return s.repository.ExecuteCommand(
 		ctx,
 		commandID,
 		request.Token,
 		request.Operator,
-		request.SimulateFault,
+		outcome,
 		s.now(),
 	)
 }

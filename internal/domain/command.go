@@ -28,6 +28,8 @@ type GateCommand struct {
 	ExecutionToken   string
 	ExecutedBy       string
 	TerminalReason   string
+	FaultAperture    float64
+	FaultBasis       string
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
 	Version          int64
@@ -142,19 +144,47 @@ func (c *GateCommand) Complete(now time.Time) error {
 	return nil
 }
 
-func (c *GateCommand) Abort(reason string, now time.Time) error {
+// Abort terminates an executing command as a fault. The operator-registered
+// actual stop aperture and the basis for that reading become the single fact
+// shared by the aborted command and the faulted gate. A stop that lies outside
+// the travel allowed by this command (between its frozen starting aperture and
+// its target) is rejected so an implausible position cannot be latched.
+func (c *GateCommand) Abort(actualAperture float64, basis string, now time.Time) error {
 	if c.Status != CommandExecuting {
 		return Conflict("command_not_executing", "command is not executing")
 	}
 
-	reason = strings.TrimSpace(reason)
-	if reason == "" {
-		reason = "gate_execution_failed"
+	basis = strings.TrimSpace(basis)
+	if basis == "" {
+		return Invalid("missing_fault_basis", "fault registration requires the basis for the actual stop")
 	}
+	if err := validateFaultAperture(actualAperture, c.StartingAperture, c.TargetAperture); err != nil {
+		return err
+	}
+
 	c.ExecutionToken = ""
-	c.TerminalReason = reason
+	c.TerminalReason = "gate_execution_failed"
+	c.FaultAperture = actualAperture
+	c.FaultBasis = basis
 	c.Status = CommandAborted
 	c.UpdatedAt = now.UTC()
 	c.Version++
+	return nil
+}
+
+func validateFaultAperture(actual, starting, target float64) error {
+	if actual < 0 {
+		return Invalid("invalid_fault_aperture", "actual stop aperture must not be negative")
+	}
+	lower, upper := starting, target
+	if lower > upper {
+		lower, upper = upper, lower
+	}
+	if actual < lower || actual > upper {
+		return Invalid(
+			"fault_aperture_out_of_travel",
+			"actual stop aperture must stay within the travel allowed by this command",
+		)
+	}
 	return nil
 }

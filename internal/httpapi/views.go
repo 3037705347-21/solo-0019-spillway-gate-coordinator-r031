@@ -19,6 +19,7 @@ func gateView(gate domain.Gate) contracts.GateView {
 		Aperture:        gate.Aperture,
 		MaxAperture:     gate.MaxAperture,
 		ActiveCommandID: gate.ActiveCommandID,
+		FaultBasis:      gate.FaultBasis,
 		UpdatedAt:       formatTime(gate.UpdatedAt),
 		Version:         gate.Version,
 	}
@@ -35,11 +36,18 @@ func commandView(command domain.GateCommand, includeToken bool) contracts.Comman
 		Status:           string(command.Status),
 		ExecutedBy:       command.ExecutedBy,
 		TerminalReason:   command.TerminalReason,
+		FaultBasis:       command.FaultBasis,
 		CreatedAt:        formatTime(command.CreatedAt),
 		UpdatedAt:        formatTime(command.UpdatedAt),
 		Version:          command.Version,
 	}
 
+	// The registered stop position is only meaningful for a fault-aborted
+	// command; surface it as a pointer so 0.0 is not hidden by omitempty.
+	if command.Status == domain.CommandAborted {
+		actual := command.FaultAperture
+		view.ActualAperture = &actual
+	}
 	if includeToken && command.Status == domain.CommandApproved {
 		view.ExecutionToken = command.ExecutionToken
 	}

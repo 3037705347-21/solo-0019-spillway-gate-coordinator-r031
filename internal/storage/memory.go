@@ -120,7 +120,7 @@ func (m *MemoryRepository) ExecuteCommand(
 	commandID string,
 	token string,
 	operator string,
-	simulateFault bool,
+	outcome domain.ExecutionOutcome,
 	now time.Time,
 ) (domain.GateCommand, domain.Gate, error) {
 	m.mu.Lock()
@@ -145,15 +145,25 @@ func (m *MemoryRepository) ExecuteCommand(
 		return domain.GateCommand{}, domain.Gate{}, err
 	}
 
-	if simulateFault {
-		if err := nextGate.Settle(nextCommand.TargetAperture, true, now); err != nil {
+	// Every validation below runs against the in-memory copies; the maps are
+	// only written once both the command and gate have accepted the outcome.
+	// An out-of-travel stop or an occupancy mismatch therefore leaves the
+	// approved command and reserved gate usable for a corrected report.
+	if outcome.Fault {
+		if err := nextCommand.Abort(outcome.ActualAperture, outcome.FaultBasis, now); err != nil {
 			return domain.GateCommand{}, domain.Gate{}, err
 		}
-		if err := nextCommand.Abort("simulated_gate_fault", now); err != nil {
+		if err := nextGate.Settle(
+			nextCommand.ID,
+			outcome.ActualAperture,
+			true,
+			outcome.FaultBasis,
+			now,
+		); err != nil {
 			return domain.GateCommand{}, domain.Gate{}, err
 		}
 	} else {
-		if err := nextGate.Settle(nextCommand.TargetAperture, false, now); err != nil {
+		if err := nextGate.Settle(nextCommand.ID, nextCommand.TargetAperture, false, "", now); err != nil {
 			return domain.GateCommand{}, domain.Gate{}, err
 		}
 		if err := nextCommand.Complete(now); err != nil {

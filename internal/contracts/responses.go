@@ -19,6 +19,7 @@ type GateView struct {
 	Aperture        float64 `json:"aperture"`
 	MaxAperture     float64 `json:"max_aperture"`
 	ActiveCommandID string  `json:"active_command_id,omitempty"`
+	FaultBasis      string  `json:"fault_basis,omitempty"`
 	UpdatedAt       string  `json:"updated_at"`
 	Version         int64   `json:"version"`
 }
@@ -28,6 +29,7 @@ type CommandView struct {
 	GateID           string                 `json:"gate_id"`
 	TargetAperture   float64                `json:"target_aperture"`
 	StartingAperture float64                `json:"starting_aperture"`
+	ActualAperture   *float64               `json:"actual_aperture,omitempty"`
 	Reason           string                 `json:"reason"`
 	RequestedBy      string                 `json:"requested_by"`
 	Status           string                 `json:"status"`
@@ -35,6 +37,7 @@ type CommandView struct {
 	ExecutionToken   string                 `json:"execution_token,omitempty"`
 	ExecutedBy       string                 `json:"executed_by,omitempty"`
 	TerminalReason   string                 `json:"terminal_reason,omitempty"`
+	FaultBasis       string                 `json:"fault_basis,omitempty"`
 	CreatedAt        string                 `json:"created_at"`
 	UpdatedAt        string                 `json:"updated_at"`
 	Version          int64                  `json:"version"`

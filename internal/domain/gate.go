@@ -24,6 +24,7 @@ type Gate struct {
 	Aperture        float64
 	MaxAperture     float64
 	ActiveCommandID string
+	FaultBasis      string
 	UpdatedAt       time.Time
 	Version         int64
 }
@@ -88,9 +89,17 @@ func (g *Gate) StartMovement(commandID string, now time.Time) error {
 	return nil
 }
 
-func (g *Gate) Settle(finalAperture float64, faulted bool, now time.Time) error {
+// Settle ends a movement. The settling command must still be the command that
+// occupies the gate; a result whose command no longer matches the reservation
+// is rejected instead of silently overwriting another command's gate. The same
+// final aperture is committed to the gate and returned so the command and gate
+// always tell the same story about where the gate stopped.
+func (g *Gate) Settle(commandID string, finalAperture float64, faulted bool, basis string, now time.Time) error {
 	if g.Status != GateMoving {
 		return Conflict("gate_not_moving", "gate must be moving before it can settle")
+	}
+	if g.ActiveCommandID == "" || g.ActiveCommandID != commandID {
+		return Conflict("gate_command_mismatch", "gate is not occupied by the settling command")
 	}
 	if finalAperture < 0 || finalAperture > g.MaxAperture {
 		return Invalid("invalid_final_aperture", "final aperture must be within the gate limit")
@@ -98,8 +107,10 @@ func (g *Gate) Settle(finalAperture float64, faulted bool, now time.Time) error 
 
 	g.Aperture = finalAperture
 	g.ActiveCommandID = ""
+	g.FaultBasis = ""
 	if faulted {
 		g.Status = GateFaulted
+		g.FaultBasis = strings.TrimSpace(basis)
 	} else {
 		g.Status = GateIdle
 	}

@@ -54,7 +54,7 @@ POST /commands/{id}/execute
 }
 ```
 
-执行示例：
+执行示例（正常完成，按目标开度落闸）：
 
 ```json
 {
@@ -63,6 +63,20 @@ POST /commands/{id}/execute
   "simulate_fault": false
 }
 ```
+
+故障登记示例（闸门卡阻停在目标开度之前时，操作员必须登记实际停位和依据）：
+
+```json
+{
+  "operator": "operator-chen",
+  "token": "复核响应中的 execution_token",
+  "simulate_fault": true,
+  "actual_aperture": 1.25,
+  "fault_basis": "闸门卡阻，现场标尺复测停在1.25m"
+}
+```
+
+故障响应中，中止命令的 `actual_aperture`/`fault_basis` 与故障闸门的 `aperture`/`fault_basis` 记录同一停位事实，后续 `GET /commands/{id}` 与 `GET /gates/{id}` 读取一致。实际停位必须位于本次允许行程（起始开度与目标开度之间）且不超出闸门最大开度，否则返回 4xx 且不写入中间状态；执行令牌在中止后失效，不能复用。
 
 ## 目录
 

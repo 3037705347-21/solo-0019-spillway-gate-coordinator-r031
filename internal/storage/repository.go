@@ -24,7 +24,7 @@ type Repository interface {
 		commandID string,
 		token string,
 		operator string,
-		simulateFault bool,
+		outcome domain.ExecutionOutcome,
 		now time.Time,
 	) (domain.GateCommand, domain.Gate, error)
 }
