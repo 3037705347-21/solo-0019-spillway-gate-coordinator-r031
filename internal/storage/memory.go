@@ -120,7 +120,7 @@ func (m *MemoryRepository) ExecuteCommand(
 	commandID string,
 	token string,
 	operator string,
-	simulateFault bool,
+	report domain.ExecutionReport,
 	now time.Time,
 ) (domain.GateCommand, domain.Gate, error) {
 	m.mu.Lock()
@@ -145,18 +145,18 @@ func (m *MemoryRepository) ExecuteCommand(
 		return domain.GateCommand{}, domain.Gate{}, err
 	}
 
-	if simulateFault {
-		if err := nextGate.Settle(nextCommand.TargetAperture, true, now); err != nil {
+	if report.Faulted {
+		if err := nextCommand.Abort(report.FaultReason, report.FinalAperture, now); err != nil {
 			return domain.GateCommand{}, domain.Gate{}, err
 		}
-		if err := nextCommand.Abort("simulated_gate_fault", now); err != nil {
+		if err := nextGate.Settle(report.FinalAperture, true, now); err != nil {
 			return domain.GateCommand{}, domain.Gate{}, err
 		}
 	} else {
-		if err := nextGate.Settle(nextCommand.TargetAperture, false, now); err != nil {
+		if err := nextCommand.Complete(now); err != nil {
 			return domain.GateCommand{}, domain.Gate{}, err
 		}
-		if err := nextCommand.Complete(now); err != nil {
+		if err := nextGate.Settle(nextCommand.TargetAperture, false, now); err != nil {
 			return domain.GateCommand{}, domain.Gate{}, err
 		}
 	}
@@ -167,10 +167,13 @@ func (m *MemoryRepository) ExecuteCommand(
 }
 
 func cloneCommand(command domain.GateCommand) domain.GateCommand {
-	if command.Interlock == nil {
-		return command
+	if command.Interlock != nil {
+		decision := *command.Interlock
+		command.Interlock = &decision
 	}
-	decision := *command.Interlock
-	command.Interlock = &decision
+	if command.FinalAperture != nil {
+		finalAperture := *command.FinalAperture
+		command.FinalAperture = &finalAperture
+	}
 	return command
 }

@@ -21,7 +21,9 @@ type ReviewInterlockRequest struct {
 }
 
 type ExecuteCommandRequest struct {
-	Operator      string `json:"operator"`
-	Token         string `json:"token"`
-	SimulateFault bool   `json:"simulate_fault"`
+	Operator      string   `json:"operator"`
+	Token         string   `json:"token"`
+	SimulateFault bool     `json:"simulate_fault"`
+	FinalAperture *float64 `json:"final_aperture"`
+	FaultReason   string   `json:"fault_reason"`
 }

@@ -28,6 +28,7 @@ type GateCommand struct {
 	ExecutionToken   string
 	ExecutedBy       string
 	TerminalReason   string
+	FinalAperture    *float64
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
 	Version          int64
@@ -135,6 +136,8 @@ func (c *GateCommand) Complete(now time.Time) error {
 		return Conflict("command_not_executing", "command is not executing")
 	}
 
+	finalAperture := c.TargetAperture
+	c.FinalAperture = &finalAperture
 	c.ExecutionToken = ""
 	c.Status = CommandCompleted
 	c.UpdatedAt = now.UTC()
@@ -142,15 +145,25 @@ func (c *GateCommand) Complete(now time.Time) error {
 	return nil
 }
 
-func (c *GateCommand) Abort(reason string, now time.Time) error {
+func (c *GateCommand) Abort(reason string, finalAperture float64, now time.Time) error {
 	if c.Status != CommandExecuting {
 		return Conflict("command_not_executing", "command is not executing")
 	}
 
 	reason = strings.TrimSpace(reason)
 	if reason == "" {
-		reason = "gate_execution_failed"
+		return Invalid("invalid_fault_reason", "fault reason is required when aborting a command")
 	}
+	low := min(c.StartingAperture, c.TargetAperture)
+	high := max(c.StartingAperture, c.TargetAperture)
+	if finalAperture < low || finalAperture > high {
+		return Invalid(
+			"final_aperture_out_of_travel",
+			"final aperture is outside the travel allowed by this command",
+		)
+	}
+
+	c.FinalAperture = &finalAperture
 	c.ExecutionToken = ""
 	c.TerminalReason = reason
 	c.Status = CommandAborted

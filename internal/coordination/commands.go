@@ -78,12 +78,21 @@ func (s *Service) ExecuteCommand(
 	commandID string,
 	request contracts.ExecuteCommandRequest,
 ) (domain.GateCommand, domain.Gate, error) {
+	report, err := domain.NewExecutionReport(
+		request.SimulateFault,
+		request.FinalAperture,
+		request.FaultReason,
+	)
+	if err != nil {
+		return domain.GateCommand{}, domain.Gate{}, err
+	}
+
 	return s.repository.ExecuteCommand(
 		ctx,
 		commandID,
 		request.Token,
 		request.Operator,
-		request.SimulateFault,
+		report,
 		s.now(),
 	)
 }
